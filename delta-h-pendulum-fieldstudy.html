@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Delta-H · A Field Study in Pendulum Energy Harvesting</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f1ebdc;
+    --paper2:#eae2cf;
+    --figure:#f5f0e3;
+    --ink:#211d16;
+    --ink2:#403a2e;
+    --muted:#6f6857;
+    --faint:#9c9379;
+    --rule:#cabf9f;
+    --rule2:#ddd3b6;
+    --verm:#b5362a;     /* harvested · generator · signal */
+    --verm2:#cf5a48;
+    --slate:#3c5a6a;    /* motion · stored */
+    --ochre:#9a7a31;    /* pivot loss */
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"EB Garamond",Georgia,serif;
+    font-weight:400;font-size:19px;line-height:1.58;
+    -webkit-font-smoothing:antialiased;position:relative;
+  }
+  /* paper grain */
+  body::before{
+    content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5;mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/></svg>");
+  }
+  .sheet{
+    position:relative;z-index:1;max-width:1000px;margin:34px auto;background:var(--paper);
+    border:1px solid var(--rule);box-shadow:0 1px 0 var(--rule) inset,0 26px 60px -34px rgba(33,29,22,.5);
+    padding:0;
+  }
+  .sheet::after{ /* inner hairline frame */
+    content:"";position:absolute;inset:9px;border:1px solid var(--rule2);pointer-events:none;
+  }
+  .inner{padding:46px 60px 54px}
+
+  /* ---------- masthead ---------- */
+  .masthead{display:flex;justify-content:space-between;align-items:flex-end;
+    font-family:"Courier Prime",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--muted);padding-bottom:12px;border-bottom:2px solid var(--ink)}
+  .masthead .r{text-align:right;color:var(--faint)}
+  .masthead b{color:var(--verm)}
+
+  .title{margin:34px 0 0}
+  .title .vol{font-family:"Courier Prime",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--verm);margin-bottom:14px}
+  h1{font-family:"EB Garamond",serif;font-weight:400;font-size:clamp(34px,5.2vw,58px);
+    line-height:1.02;letter-spacing:-.012em}
+  h1 em{font-style:italic;color:var(--ink2)}
+  .deck{margin-top:20px;max-width:64ch;font-size:20px;font-weight:400;color:var(--ink2);line-height:1.6}
+  .deck b{font-weight:500;color:var(--ink);background:linear-gradient(transparent 62%,rgba(181,54,42,.16) 62%)}
+  .specline{margin-top:22px;display:flex;flex-wrap:wrap;gap:0;border:1px solid var(--rule);
+    font-family:"Courier Prime",monospace;font-size:11px;color:var(--muted)}
+  .specline div{padding:9px 16px;border-right:1px solid var(--rule);flex:1;min-width:130px}
+  .specline div:last-child{border-right:none}
+  .specline b{display:block;color:var(--ink);font-size:13px;letter-spacing:.02em;margin-top:2px;font-weight:600}
+
+  /* ---------- figure 1 ---------- */
+  .fig{margin-top:40px}
+  .figtop{display:flex;justify-content:space-between;align-items:baseline;
+    font-family:"Courier Prime",monospace;font-size:11px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--ink);padding-bottom:7px}
+  .figtop b{color:var(--ink)}
+  .figtop .run{color:var(--verm);display:flex;align-items:center;gap:7px}
+  .figtop .run i{width:7px;height:7px;border-radius:50%;background:var(--verm);animation:bl 1.5s infinite}
+  @keyframes bl{0%,100%{opacity:.3}50%{opacity:1}}
+
+  .figbody{display:grid;grid-template-columns:1.5fr 1fr;border:1px solid var(--ink);border-top:none}
+  .stage{position:relative;background:var(--figure);border-right:1px solid var(--ink);min-height:430px}
+  canvas#scene{display:block;width:100%;height:100%}
+
+  .panel{padding:22px 24px;display:flex;flex-direction:column;gap:0}
+  .eff{padding-bottom:18px;border-bottom:1px solid var(--rule)}
+  .eff .l{font-family:"Courier Prime",monospace;font-size:10px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--muted)}
+  .eff .v{font-family:"EB Garamond",serif;font-size:62px;font-weight:400;line-height:1;margin-top:4px;color:var(--verm)}
+  .eff .v .sym{font-style:italic;color:var(--ink);font-size:30px;margin-right:8px}
+  .eff .v small{font-size:24px;color:var(--verm2)}
+
+  table.meas{width:100%;border-collapse:collapse;margin-top:4px}
+  table.meas td{padding:9px 0;border-bottom:1px solid var(--rule2);font-size:14px;vertical-align:baseline}
+  table.meas td.k{font-family:"Courier Prime",monospace;font-size:10.5px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--muted)}
+  table.meas td.v{text-align:right;font-family:"Courier Prime",monospace;font-size:16px;font-weight:600;color:var(--ink)}
+  table.meas td.v small{font-weight:400;color:var(--muted);font-size:11px;margin-left:3px}
+
+  .miniplot{margin-top:18px}
+  .miniplot .cap{font-family:"Courier Prime",monospace;font-size:10px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;margin-bottom:6px}
+  .miniplot .cap b{color:var(--verm);font-weight:600}
+  .plotbox{border:1px solid var(--rule);background:var(--figure);padding:6px}
+  canvas#chart{display:block;width:100%;height:58px}
+
+  .figcap{margin-top:12px;font-family:"Courier Prime",monospace;font-size:11px;color:var(--muted);
+    line-height:1.6;display:flex;gap:8px}
+  .figcap b{color:var(--ink);white-space:nowrap}
+
+  /* energy ledger */
+  .ledger{margin-top:20px;border:1px solid var(--ink);padding:14px 16px 16px}
+  .ledger .h{font-family:"Courier Prime",monospace;font-size:10.5px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);margin-bottom:11px}
+  .bar{height:22px;display:flex;border:1px solid var(--ink);background:var(--figure)}
+  .bar i{height:100%;transition:width .12s linear;border-right:1px solid rgba(33,29,22,.25)}
+  .bar i:last-child{border-right:none}
+  .seg-h{background:repeating-linear-gradient(45deg,var(--verm),var(--verm) 5px,var(--verm2) 5px,var(--verm2) 10px)}
+  .seg-l{background:var(--ochre)}
+  .seg-s{background:var(--slate)}
+  .key{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:11px;
+    font-family:"Courier Prime",monospace;font-size:10.5px;color:var(--ink2)}
+  .key span{display:flex;align-items:center;gap:7px}
+  .key i{width:11px;height:11px;border:1px solid var(--ink)}
+
+  /* ---------- parameters ---------- */
+  .params{margin-top:34px}
+  .params .h{font-family:"Courier Prime",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--ink);padding-bottom:7px;
+    display:flex;justify-content:space-between}
+  .params .h b{color:var(--ink)}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:22px 44px;margin-top:22px}
+  .ctl .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+  .ctl label{font-size:15px;color:var(--ink)}
+  .ctl label i{font-style:italic;color:var(--muted)}
+  .ctl .num{font-family:"Courier Prime",monospace;font-size:15px;color:var(--verm);font-weight:600}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:2px;background:var(--ink);outline:none;cursor:pointer;
+    background-image:linear-gradient(var(--verm),var(--verm));background-repeat:no-repeat;background-size:var(--p,40%) 100%}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;
+    background:var(--verm);border:2px solid var(--paper);box-shadow:0 0 0 1px var(--ink);cursor:grab}
+  input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--verm);
+    border:2px solid var(--paper);box-shadow:0 0 0 1px var(--ink);cursor:grab}
+  .actions{display:flex;gap:14px;align-items:center;margin-top:26px;padding-top:18px;border-top:1px solid var(--rule)}
+  button{font-family:"Courier Prime",monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;
+    border:1px solid var(--ink);background:transparent;color:var(--ink);padding:10px 18px;cursor:pointer;transition:.15s}
+  button:hover{background:var(--ink);color:var(--paper)}
+  button.primary{background:var(--verm);border-color:var(--verm);color:var(--paper)}
+  button.primary:hover{background:var(--ink);border-color:var(--ink)}
+  .note{font-family:"EB Garamond",serif;font-style:italic;font-size:14px;color:var(--muted);margin-left:auto;max-width:42ch;text-align:right}
+
+  /* ---------- sections ---------- */
+  .body{margin-top:46px;display:grid;grid-template-columns:1fr 1fr;gap:46px}
+  section h2{font-family:"EB Garamond",serif;font-weight:400;font-size:25px;letter-spacing:-.01em;
+    padding-bottom:8px;border-bottom:1px solid var(--ink);margin-bottom:16px}
+  section h2 span{font-family:"Courier Prime",monospace;font-size:13px;color:var(--verm);margin-right:10px;letter-spacing:0}
+  section p{font-size:15.5px;font-weight:400;color:var(--ink2);margin-bottom:14px}
+  section p b{font-weight:500;color:var(--ink)}
+  .eq{font-family:"Courier Prime",monospace;font-size:15px;color:var(--ink);
+    border-left:2px solid var(--verm);padding:10px 0 10px 18px;margin:8px 0 18px;position:relative}
+  .eq .tag{position:absolute;right:0;top:50%;transform:translateY(-50%);color:var(--faint);font-size:12px}
+  .eq .h{color:var(--verm)}
+  .eq .l{color:var(--ochre)}
+  .eq .v{color:var(--slate)}
+  .eq sub{font-size:.72em;color:var(--muted)}.eq sup{font-size:.72em}
+  dl.gloss{margin-top:4px}
+  dl.gloss div{display:flex;gap:16px;padding:8px 0;border-bottom:1px dotted var(--rule)}
+  dl.gloss dt{font-family:"Courier Prime",monospace;color:var(--verm);font-weight:600;min-width:42px;font-size:15px}
+  dl.gloss dd{color:var(--ink2);font-weight:400;font-size:14.5px}
+  .margin-note{font-family:"Courier Prime",monospace;font-size:11.5px;color:var(--muted);line-height:1.6;
+    border-top:1px solid var(--rule);padding-top:12px;margin-top:6px}
+  .margin-note::before{content:"※ ";color:var(--verm)}
+
+  .colophon{margin-top:50px;padding-top:16px;border-top:2px solid var(--ink);
+    display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;
+    font-family:"Courier Prime",monospace;font-size:11px;color:var(--muted)}
+  .colophon b{color:var(--ink)}
+  .colophon .dash{color:var(--rule)}
+
+  @media(max-width:860px){
+    .inner{padding:34px 26px 40px}
+    .figbody{grid-template-columns:1fr}
+    .stage{border-right:none;border-bottom:1px solid var(--ink);min-height:340px}
+    .body{grid-template-columns:1fr;gap:34px}
+    .grid{grid-template-columns:1fr}
+    .note{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+ <div class="inner">
+
+  <div class="masthead">
+    <div>Delta-H Initiative &nbsp;/&nbsp; <b>Phase I Feasibility</b></div>
+    <div class="r">Interactive Field Study&nbsp;&nbsp;№ 01<br>Pendulum Energy Recovery</div>
+  </div>
+
+  <div class="title">
+    <div class="vol">A working model · drag to operate</div>
+    <h1>On the harvesting of energy<br>from a <em>swinging mass</em></h1>
+    <p class="deck">A gravity pendulum stores energy, then surrenders it. The whole problem of harvesting is choosing a generator load <b>heavy enough to draw real power</b>, yet light enough that the swing survives. Below is that trade-off, integrated live. Operate the parameters and follow where every joule goes.</p>
+    <div class="specline">
+      <div>Solver<b>RK4 · 500 Hz</b></div>
+      <div>Mass<b>m = 1.00 kg</b></div>
+      <div>Gravity<b>g = 9.81 m/s²</b></div>
+      <div>Model<b>damped physical pendulum</b></div>
+    </div>
+  </div>
+
+  <div class="fig">
+    <div class="figtop">
+      <div>Figure 1 · <b>The apparatus, in motion</b></div>
+      <div class="run"><i></i>Integrating</div>
+    </div>
+    <div class="figbody">
+      <div class="stage"><canvas id="scene"></canvas></div>
+      <div class="panel">
+        <div class="eff">
+          <div class="l">Harvest efficiency · E_gen ÷ E₀</div>
+          <div class="v"><span class="sym">η</span><span id="eff">0.0</span><small>%</small></div>
+        </div>
+        <table class="meas">
+          <tr><td class="k">Energy harvested</td><td class="v"><span id="eh">0.00</span><small>J</small></td></tr>
+          <tr><td class="k">Peak generator power</td><td class="v"><span id="pk">0.00</span><small>W</small></td></tr>
+          <tr><td class="k">Swing period</td><td class="v"><span id="per">0.00</span><small>s</small></td></tr>
+          <tr><td class="k">Half-swings to rest</td><td class="v"><span id="cyc">0</span></td></tr>
+        </table>
+        <div class="miniplot">
+          <div class="cap"><span>Fig. 2 · generator power P(t)</span><b><span id="pnow">0.00</span> W</b></div>
+          <div class="plotbox"><canvas id="chart"></canvas></div>
+        </div>
+      </div>
+    </div>
+    <div class="figcap"><b>Fig. 1.</b><span>Single rigid rod on a frictional pivot fitted with an electromagnetic generator. The tangential arrow marks instantaneous angular velocity θ̇; the generator symbol darkens with power drawn.</span></div>
+
+    <div class="ledger">
+      <div class="h">Energy ledger · disposition of E₀ at each instant</div>
+      <div class="bar">
+        <i class="seg-h" id="segH" style="width:0%"></i>
+        <i class="seg-l" id="segL" style="width:0%"></i>
+        <i class="seg-s" id="segS" style="width:100%"></i>
+      </div>
+      <div class="key">
+        <span><i class="seg-h"></i>Harvested at generator</span>
+        <span><i style="background:var(--ochre)"></i>Lost in pivot</span>
+        <span><i style="background:var(--slate)"></i>Still in motion</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="params">
+    <div class="h"><span>Parameters</span><b>operate the model</b></div>
+    <div class="grid">
+      <div class="ctl">
+        <div class="top"><label>Rod length <i>L</i></label><span class="num"><span id="vL">1.00</span> m</span></div>
+        <input type="range" id="L" min="0.2" max="2" step="0.01" value="1">
+      </div>
+      <div class="ctl">
+        <div class="top"><label>Release angle <i>θ₀</i></label><span class="num"><span id="vA">55</span>°</span></div>
+        <input type="range" id="A" min="10" max="85" step="1" value="55">
+      </div>
+      <div class="ctl">
+        <div class="top"><label>Pivot damping <i>c<sub>p</sub></i></label><span class="num"><span id="vP">0.04</span></span></div>
+        <input type="range" id="P" min="0" max="0.4" step="0.005" value="0.04">
+      </div>
+      <div class="ctl">
+        <div class="top"><label>Generator load <i>c<sub>g</sub></i></label><span class="num"><span id="vG">0.15</span></span></div>
+        <input type="range" id="G" min="0" max="0.6" step="0.005" value="0.15">
+      </div>
+    </div>
+    <div class="actions">
+      <button class="primary" id="release">↻ Release</button>
+      <button id="pause">Pause</button>
+      <p class="note">There exists an optimal generator load: too light and the swing's energy is wasted, too heavy and the pendulum stalls before it can give it up.</p>
+    </div>
+  </div>
+
+  <div class="body">
+    <section>
+      <h2><span>§1</span>The governing equation</h2>
+      <p>The motion is that of a damped physical pendulum. Two torques drain it, each proportional to angular velocity: <b>useful extraction</b> at the generator and <b>parasitic loss</b> at the pivot.</p>
+      <div class="eq">m·L²·<span class="v">θ̈</span> = −m·g·L·sin<span class="v">θ</span> − (<span class="l">c<sub>p</sub></span> + <span class="h">c<sub>g</sub></span>)·<span class="v">θ̇</span><span class="tag">(1)</span></div>
+      <p>Power divides cleanly between the two channels, accumulated each step by the integrator:</p>
+      <div class="eq"><span class="h">P<sub>gen</sub></span> = <span class="h">c<sub>g</sub></span>·<span class="v">θ̇</span><sup>2</sup> ,&nbsp;&nbsp; <span class="l">P<sub>loss</sub></span> = <span class="l">c<sub>p</sub></span>·<span class="v">θ̇</span><sup>2</sup><span class="tag">(2)</span></div>
+      <p class="margin-note">The ledger above is nothing more than conservation of energy made visible: whatever departs the swing arrives as harvest, as heat in the pivot, or remains as motion.</p>
+    </section>
+    <section>
+      <h2><span>§2</span>What the model rewards</h2>
+      <p>At release the pendulum holds <b>E₀ = m·g·L·(1 − cos θ₀)</b>. Efficiency η is the fraction of that the generator captures before all motion ceases.</p>
+      <dl class="gloss">
+        <div><dt>θ</dt><dd>angular position measured from vertical (rad)</dd></div>
+        <div><dt>θ̇</dt><dd>angular velocity, the sole driver of output power</dd></div>
+        <div><dt>c<sub>g</sub></dt><dd>generator load, the extraction you keep</dd></div>
+        <div><dt>c<sub>p</sub></dt><dd>pivot damping, the loss you engineer against</dd></div>
+        <div><dt>L</dt><dd>rod length, fixes both period and stored energy</dd></div>
+      </dl>
+      <p style="margin-top:16px">The lever this study examines: raise <b>c<sub>g</sub></b> to take more from each swing, but past the optimum the pendulum scarcely moves and total harvest falls away. The task is to find that peak.</p>
+    </section>
+  </div>
+
+  <div class="colophon">
+    <b>Bereket Tadesse</b><span class="dash">·</span>
+    <span>Delta-H · pendulum energy-harvesting feasibility, Phase I</span><span class="dash">·</span>
+    <span>set in EB Garamond &amp; Courier Prime · RK4 numerical model</span>
+  </div>
+
+ </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const g=9.81, m=1.0;
+  let L=1.0, theta0=55*Math.PI/180, cP=0.04, cG=0.15;
+  let theta=theta0, omega=0, Eh=0, El=0;
+  let E0=m*g*L*(1-Math.cos(theta0));
+  let peak=0, tElapsed=0, halfCrossings=0, lastSign=0;
+  let running=true, atRest=false, restShown=false;
+  const powerHist=new Array(150).fill(0);
+
+  const COL={ink:"#211d16",rule:"rgba(33,29,22,.16)",verm:"#b5362a",slate:"#3c5a6a",paper:"#f5f0e3",muted:"#6f6857"};
+
+  const scene=document.getElementById('scene'),sctx=scene.getContext('2d');
+  const chart=document.getElementById('chart'),cctx=chart.getContext('2d');
+  let DPR=Math.max(1,Math.min(2,window.devicePixelRatio||1));
+  function sz(cv,ctx){const r=cv.getBoundingClientRect();cv.width=r.width*DPR;cv.height=r.height*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);return r;}
+  let sR=sz(scene,sctx),cR=sz(chart,cctx);
+  window.addEventListener('resize',()=>{DPR=Math.max(1,Math.min(2,window.devicePixelRatio||1));sR=sz(scene,sctx);cR=sz(chart,cctx);});
+
+  function accel(th,om){return -(g/L)*Math.sin(th)-((cP+cG)/(m*L*L))*om;}
+  function step(dt){
+    const b1=accel(theta,omega);
+    const a2=omega+0.5*dt*b1,b2=accel(theta+0.5*dt*omega,a2);
+    const a3=omega+0.5*dt*b2,b3=accel(theta+0.5*dt*a2,a3);
+    const a4=omega+dt*b3,b4=accel(theta+dt*a3,a4);
+    theta+=dt/6*(omega+2*a2+2*a3+a4);
+    omega+=dt/6*(b1+2*b2+2*b3+b4);
+    const w2=omega*omega;
+    Eh+=cG*w2*dt; El+=cP*w2*dt;
+    const p=cG*w2; if(p>peak)peak=p;
+    tElapsed+=dt;
+    const s=Math.sign(theta);
+    if(s!==0&&lastSign!==0&&s!==lastSign)halfCrossings++;
+    if(s!==0)lastSign=s;
+  }
+  function reset(){
+    theta0=parseFloat(A.value)*Math.PI/180;
+    theta=theta0;omega=0;Eh=0;El=0;peak=0;tElapsed=0;halfCrossings=0;lastSign=Math.sign(theta0);
+    atRest=false;restShown=false;E0=m*g*L*(1-Math.cos(theta0));powerHist.fill(0);
+    running=true;pauseBtn.textContent="Pause";
+  }
+
+  function drawScene(){
+    const w=sR.width,h=sR.height;
+    sctx.clearRect(0,0,w,h);
+    // faint dot grid
+    sctx.fillStyle="rgba(33,29,22,.06)";
+    for(let x=24;x<w;x+=24)for(let y=24;y<h;y+=24){sctx.beginPath();sctx.arc(x,y,.9,0,7);sctx.fill();}
+    const cx=w*0.5,cy=h*0.18,maxLen=Math.min(h*0.66,w*0.42),Lpx=(L/2.0)*maxLen+maxLen*0.18;
+    const bx=cx+Lpx*Math.sin(theta),by=cy+Lpx*Math.cos(theta);
+
+    // swing envelope
+    sctx.strokeStyle="rgba(60,90,106,.4)";sctx.lineWidth=1;sctx.setLineDash([2,5]);
+    sctx.beginPath();sctx.arc(cx,cy,Lpx,Math.PI/2-theta0,Math.PI/2+theta0);sctx.stroke();
+    // plumb
+    sctx.strokeStyle="rgba(33,29,22,.22)";sctx.beginPath();sctx.moveTo(cx,cy);sctx.lineTo(cx,cy+Lpx+22);sctx.stroke();
+    sctx.setLineDash([]);
+    // angle arc + label
+    sctx.strokeStyle=COL.verm;sctx.lineWidth=1.4;
+    sctx.beginPath();sctx.arc(cx,cy,34,Math.PI/2,Math.PI/2+theta,theta<0);sctx.stroke();
+    sctx.fillStyle=COL.verm;sctx.font='italic 13px "EB Garamond",serif';
+    sctx.fillText("θ",cx+(theta>0?16:-22),cy+50);
+
+    // velocity arrow
+    const vmag=Math.min(Math.abs(omega)*Lpx*0.16,Lpx*0.5),tdir=Math.sign(omega||1);
+    const tx=Math.cos(theta),ty=-Math.sin(theta);
+    const ex=bx+tx*vmag*tdir,ey=by+ty*vmag*tdir;
+    sctx.strokeStyle=COL.slate;sctx.lineWidth=2;
+    sctx.beginPath();sctx.moveTo(bx,by);sctx.lineTo(ex,ey);sctx.stroke();
+    if(vmag>10){const ang=Math.atan2(ey-by,ex-bx);sctx.fillStyle=COL.slate;
+      sctx.beginPath();sctx.moveTo(ex,ey);
+      sctx.lineTo(ex-7*Math.cos(ang-0.4),ey-7*Math.sin(ang-0.4));
+      sctx.lineTo(ex-7*Math.cos(ang+0.4),ey-7*Math.sin(ang+0.4));sctx.closePath();sctx.fill();}
+
+    // rod
+    sctx.strokeStyle=COL.ink;sctx.lineWidth=2.5;sctx.lineCap="round";
+    sctx.beginPath();sctx.moveTo(cx,cy);sctx.lineTo(bx,by);sctx.stroke();
+
+    // generator at pivot
+    const out=Math.min(1,(cG*omega*omega)/2.2);
+    sctx.fillStyle=COL.paper;sctx.strokeStyle=COL.verm;sctx.lineWidth=1.6;
+    sctx.beginPath();sctx.arc(cx,cy,14,0,7);sctx.fill();sctx.stroke();
+    sctx.fillStyle="rgba(181,54,42,"+(0.2+0.8*out)+")";
+    sctx.beginPath();sctx.arc(cx,cy,5+3*out,0,7);sctx.fill();
+    for(let k=0;k<3;k++){sctx.strokeStyle="rgba(181,54,42,"+(0.55-k*0.15)+")";sctx.lineWidth=1.2;
+      sctx.beginPath();sctx.arc(cx,cy,9+k*2.5,-0.55,0.55);sctx.stroke();
+      sctx.beginPath();sctx.arc(cx,cy,9+k*2.5,Math.PI-0.55,Math.PI+0.55);sctx.stroke();}
+
+    // bob
+    sctx.fillStyle=COL.slate;sctx.beginPath();sctx.arc(bx,by,14,0,7);sctx.fill();
+    sctx.strokeStyle=COL.ink;sctx.lineWidth=1.5;sctx.stroke();
+    sctx.strokeStyle="rgba(245,240,227,.85)";sctx.lineWidth=1;
+    sctx.beginPath();sctx.moveTo(bx-6,by);sctx.lineTo(bx+6,by);sctx.moveTo(bx,by-6);sctx.lineTo(bx,by+6);sctx.stroke();
+
+    // annotations
+    sctx.font='10px "Courier Prime",monospace';
+    leader(cx+14,cy-4,cx+66,cy-30,"PIVOT · GENERATOR",false);
+    leader(bx,by+15,bx+(bx<cx?-1:1)*6,by+42,"BOB  m = 1 kg",bx<cx);
+    const mx=(cx+bx)/2,my=(cy+by)/2;
+    sctx.fillStyle=COL.muted;sctx.textAlign=bx>cx?"right":"left";
+    sctx.fillText("ROD · L = "+L.toFixed(2)+" m",mx+(bx>cx?-12:12),my);sctx.textAlign="left";
+  }
+  function leader(x0,y0,x1,y1,t,left){
+    sctx.strokeStyle="rgba(33,29,22,.3)";sctx.lineWidth=1;
+    sctx.beginPath();sctx.moveTo(x0,y0);sctx.lineTo(x1,y1);sctx.stroke();
+    sctx.fillStyle=COL.muted;sctx.textAlign=left?"right":"left";
+    sctx.fillText(t,x1+(left?-5:5),y1+3);sctx.textAlign="left";
+  }
+  function drawChart(){
+    const w=cR.width,h=cR.height;cctx.clearRect(0,0,w,h);
+    let mx=0.001;for(const v of powerHist)if(v>mx)mx=v;
+    cctx.strokeStyle="rgba(33,29,22,.18)";cctx.lineWidth=1;
+    cctx.beginPath();cctx.moveTo(0,h-1);cctx.lineTo(w,h-1);cctx.stroke();
+    cctx.beginPath();cctx.moveTo(0,h);
+    for(let i=0;i<powerHist.length;i++)cctx.lineTo(i/(powerHist.length-1)*w,h-(powerHist[i]/mx)*(h-4));
+    cctx.lineTo(w,h);cctx.closePath();cctx.fillStyle="rgba(181,54,42,.13)";cctx.fill();
+    cctx.beginPath();
+    for(let i=0;i<powerHist.length;i++){const x=i/(powerHist.length-1)*w,y=h-(powerHist[i]/mx)*(h-4);i?cctx.lineTo(x,y):cctx.moveTo(x,y);}
+    cctx.strokeStyle=COL.verm;cctx.lineWidth=1.8;cctx.stroke();
+  }
+
+  const $=id=>document.getElementById(id);let ct=0;
+  function ui(){
+    const rem=Math.max(0,0.5*m*L*L*omega*omega+m*g*L*(1-Math.cos(theta)));
+    const fH=E0>0?Eh/E0:0,fL=E0>0?El/E0:0,fS=E0>0?rem/E0:0;
+    $('eff').textContent=(Math.min(fH,1)*100).toFixed(1);
+    $('eh').textContent=Eh.toFixed(2);$('pk').textContent=peak.toFixed(2);
+    $('per').textContent=(2*Math.PI*Math.sqrt(L/g)*(1+theta0*theta0/16)).toFixed(2);
+    $('pnow').textContent=(cG*omega*omega).toFixed(2);
+    $('segH').style.width=(Math.min(fH,1)*100).toFixed(1)+'%';
+    $('segL').style.width=(Math.min(fL,1)*100).toFixed(1)+'%';
+    $('segS').style.width=(Math.max(0,Math.min(fS,1))*100).toFixed(1)+'%';
+    if(!restShown&&Math.abs(omega)<0.02&&Math.abs(theta)<0.03&&tElapsed>0.5){
+      atRest=true;restShown=true;$('cyc').textContent=Math.max(1,Math.round(halfCrossings/2));
+    }else if(!restShown){$('cyc').textContent=Math.max(0,Math.floor(halfCrossings/2))||'0';}
+  }
+  let last=performance.now();
+  function frame(now){
+    let dt=(now-last)/1000;last=now;if(dt>0.05)dt=0.05;
+    if(running&&!atRest){const sub=Math.max(1,Math.round(dt/0.002)),hh=dt/sub;for(let i=0;i<sub;i++)step(hh);}
+    ct+=dt;if(ct>0.05){ct=0;powerHist.push(cG*omega*omega);powerHist.shift();}
+    drawScene();drawChart();ui();requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  const A=$('A'),P=$('P'),G=$('G'),Ls=$('L');
+  function paint(el){const mn=+el.min,mx=+el.max;el.style.setProperty('--p',((el.value-mn)/(mx-mn)*100)+'%');}
+  function bind(el,fn){el.addEventListener('input',()=>{fn();paint(el);});paint(el);}
+  bind(Ls,()=>{L=+Ls.value;$('vL').textContent=L.toFixed(2);reset();});
+  bind(A,()=>{$('vA').textContent=A.value;reset();});
+  bind(P,()=>{cP=+P.value;$('vP').textContent=cP.toFixed(3);reset();});
+  bind(G,()=>{cG=+G.value;$('vG').textContent=cG.toFixed(3);reset();});
+  const pauseBtn=$('pause');
+  pauseBtn.addEventListener('click',()=>{running=!running;pauseBtn.textContent=running?'Pause':'Resume';});
+  $('release').addEventListener('click',reset);
+  reset();
+})();
+</script>
+</body>
+</html>
